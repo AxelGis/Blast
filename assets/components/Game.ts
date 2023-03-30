@@ -1,6 +1,6 @@
-import { _decorator, Component, Node, Sprite, error, SpriteFrame, assetManager, Vec3, director } from 'cc';
+import { _decorator, Component, Vec3, director } from 'cc';
 import { Booster } from './booster/Booster';
-import { BoosterType } from './booster/BoosterTypes';
+import { BoosterType } from './booster/BoosterHandler';
 import { Field } from './field/Field';
 import { Moves } from './ui/Moves';
 import { Scores } from './ui/Scores';
@@ -23,6 +23,8 @@ export class Game extends Component {
     scoresToWin:number = 30;                                        //X
     @property(Number)
     maxMoves:number = 10;                                           //Y
+    @property(Number)
+    mixCount:number = 2;                                            //S
     @property([String])
     availableBoosters:string[] = [BoosterType.BOMB, BoosterType.TELEPORT]
 
@@ -30,9 +32,12 @@ export class Game extends Component {
     scoresComponent:Scores = null;
     activeBooster:string|null = null;
 
+    /**
+     * Start game - create field with NxM blocks
+     */
     start() {
         let field:Field = this.node.addComponent(Field);
-        field.node.setPosition(new Vec3(-350,150));
+        field.node.setPosition(new Vec3(-350,200));
         field.minBlast = this.minBlast;
         field.fieldSize = this.fieldSize;
         field.colors = this.colors;
@@ -52,29 +57,53 @@ export class Game extends Component {
         
     }
 
+    /**
+     * Increase scores
+     * @param n scores count
+     */
     addScore(n:number){
         this.setScores(this.getScores() + n);
     }  
 
-    getScores(){
+    /**
+     * Get current scores
+     * @returns number scores
+     */
+    getScores():number{
         this.scoresComponent = this.scoresComponent ?? this.node.parent.getComponentInChildren(Scores);
         return this.scoresComponent.value;
     }    
-    
+ 
+    /**
+     * Set scores in UI
+     * @param n scores
+     */
     setScores(n:number){
         this.scoresComponent = this.scoresComponent ?? this.node.parent.getComponentInChildren(Scores);
         this.scoresComponent.setValue(n);
     }
 
+    /**
+     * Sub moves count
+     * @param n default 1
+     */
     subMove(n:number = 1){
         this.setMoves(this.getMoves() - n);
     }
 
+    /**
+     * Get moves count
+     * @returns number moves
+     */
     getMoves():number{
         this.movesComponent = this.movesComponent ?? this.node.parent.getComponentInChildren(Moves);
         return this.movesComponent.value;
     }
 
+    /**
+     * Set moves in UI
+     * @param n number moves
+     */
     setMoves(n:number){
         this.movesComponent = this.movesComponent ?? this.node.parent.getComponentInChildren(Moves);
         this.movesComponent.setValue(n);
@@ -83,6 +112,9 @@ export class Game extends Component {
         }
     }
 
+    /**
+     * End game and save current scores and record to localStorage
+     */
     endGame(){
         const scores:number = this.getScores();
         localStorage.setItem("scores",scores.toString());
@@ -94,12 +126,21 @@ export class Game extends Component {
         director.loadScene(scene);
     }
 
-    getBooster(type:string){
+    /**
+     * Get booster UI component
+     * @param type 
+     * @returns 
+     */
+    getBooster(type:string):Booster{
         return this.node.parent.getChildByName("bg")
                         .getChildByName("booster"+type)
                         .getChildByName("Booster").getComponent(Booster);
     }
 
+    /**
+     * Set active booster type or clear (null)
+     * @param type 
+     */
     setActiveBooster(type:string|null){
         this.activeBooster = type;
 
@@ -108,8 +149,32 @@ export class Game extends Component {
                 if(boost !== type){
                     const booster:Booster = this.getBooster(boost);
                     if(booster.active)
-                        booster.toggle();
+                        booster.deactivate();
                 }
             });
+    }
+
+    /**
+     * Sub booster count by type
+     * @param type 
+     */
+    subBooster(type:string){
+        const booster:Booster = this.getBooster(type);
+        booster.setValue(--booster.count);
+        if(booster.count <= 0){
+            this.activeBooster = null;
+            booster.deactivate();
+        }
+    }
+
+    /**
+     * Mix game field
+     */
+    mixer(){
+        if(this.mixCount--){
+            this.node.getComponent(Field).mixer();
+        } else {
+            this.endGame();
+        }
     }
 }
