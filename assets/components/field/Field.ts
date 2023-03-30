@@ -1,4 +1,5 @@
 import { _decorator, Component, Node, assetManager, SpriteFrame, error, Sprite, Vec3 } from 'cc';
+import { Game } from '../Game';
 import { Square } from './Square';
 const { ccclass, property } = _decorator;
 
@@ -9,18 +10,23 @@ type SingleSquare = {
 
 @ccclass('Field')
 export class Field extends Component {
-    @property([Number])
-    minBlast:number = 2;                                            //K
-    @property([Number])
-    fieldSize:number[] = [10,10];                                   //[N,M]
-    @property([String])
-    colors:string[] = ["red","blue","green","yellow","purple"];     //[C]
+    minBlast:number;
+    fieldSize:number[];
+    colors:string[];
 
     sprites:Map<string, SpriteFrame> = new Map<string, SpriteFrame>;
     nears:Square[];
     destroyed:SingleSquare[];
+    blocked:boolean = false;
 
-    start() {
+    start() {}
+
+    update(deltaTime: number) {}
+
+    /**
+     * Preload sprites
+     */
+    preload(){
         assetManager.loadBundle('squares', (err, bundle) => {
             let cnt = 0;
             this.colors.forEach(color => {
@@ -34,13 +40,12 @@ export class Field extends Component {
                     }
                 });            
             });
-        });        
+        });    
     }
 
-    update(deltaTime: number) {
-        
-    }
-
+    /**
+     * Fill game field
+     */
     init(){
         const [N,M] = this.fieldSize;
         for(let i=0; i < N; i++){
@@ -50,6 +55,11 @@ export class Field extends Component {
         }
     }
 
+    /**
+     * Add new block to field
+     * @param x
+     * @param y 
+     */
     addBlock(x:number, y: number){
         const [color,spriteFrame] = this.getRandomSprite();
 
@@ -60,6 +70,10 @@ export class Field extends Component {
         this.node.addChild(node);
     }
 
+    /**
+     * Get random sprite color from set
+     * @returns [color:string,spriteFrame:SpriteFrame]
+     */
     getRandomSprite():[string,SpriteFrame] {
         const index:number = Math.floor(Math.random() * this.colors.length);
         const color:string = this.colors[index];
@@ -68,11 +82,22 @@ export class Field extends Component {
 
     /**
      * Blast calculation
+     * @param square clicked square
      */
     checkBlast(square:Square){
+        if(this.blocked){
+            return;
+        }
+
+        this.blocked = true;
         this.nears = [];
         this.destroyed = [];
         this.getNears(square.x,square.y,square.color);
+
+        if(this.nears.length === 0){
+            this.blocked = false;
+            return;
+        }
 
         this.nears.forEach(near=>{
             near.startBlast();
@@ -86,8 +111,17 @@ export class Field extends Component {
                 } 
             }
         });
+
+        this.subMove();
+        this.addScore(this.destroyed.length);
     }
 
+    /**
+     * Get closest squares by color
+     * @param x 
+     * @param y 
+     * @param color 
+     */
     getNears(x:number,y:number,color:string){
         const nears:Node[] = this.node.children.filter(
             ch => ch.getComponent(Square).color === color && 
@@ -105,6 +139,10 @@ export class Field extends Component {
             });
     }
 
+    /**
+     * Move nodes down after blast
+     * @param near blasted Node
+     */
     moveColumn(near:Node){
         const inLines:Node[] = this.node.children.filter(
             ch => ch.getComponent(Square).x === near.getComponent(Square).x && 
@@ -119,13 +157,36 @@ export class Field extends Component {
             });
 
             this.fillEmpty();
-        },1000);
+        },500);
     }
 
+    /**
+     * Fill empty squares with new blocks
+     */
     fillEmpty(){
-        this.destroyed.forEach((ss,i)=>{
-            this.addBlock(ss.x,ss.y);
-            this.destroyed.splice(i,1);
-        });
+        if(this.destroyed)
+            this.destroyed.forEach((ss,i)=>{
+                this.addBlock(ss.x,ss.y);
+                this.destroyed.splice(i,1);
+            });
+        this.blocked = false;
     }
+
+    /**
+     * Add scores
+     * @param n scores
+     */
+    addScore(n:number){
+        this.node.getComponent(Game).addScore(n);
+    }
+
+    /**
+     * Sub moves
+     * @param n moves, default = 1
+     */
+    subMove(n:number = 1){
+        this.node.getComponent(Game).subMove();
+    }
+
+    
 }
