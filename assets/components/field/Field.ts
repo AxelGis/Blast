@@ -49,6 +49,7 @@ export class Field extends Component {
                 this.addBlock(i,j);
             }
         }
+        this.checkAvailable();
     }
 
     /**
@@ -76,6 +77,9 @@ export class Field extends Component {
         return [color,this.sprites.get(color)];
     }
 
+    /**
+     * Clean before next move
+     */
     initMove(){
         this.nears = [];
         this.destroyed = [];
@@ -97,9 +101,9 @@ export class Field extends Component {
             return;
         }
 
-        //get near blocks
         this.blocked = true;
         this.initMove();
+        //get near blocks
         this.getNears(square.x,square.y,square.color);
 
         if(this.nears.length === 0){
@@ -131,17 +135,13 @@ export class Field extends Component {
     }
 
     /**
-     * Get closest squares by color
+     * Get all closest squares by color
      * @param x 
      * @param y 
      * @param color 
      */
     getNears(x:number,y:number,color:string){
-        const nears:Node[] = this.node.children.filter(
-            ch => ch.getComponent(Square).color === color && 
-                    Math.abs(ch.getComponent(Square).x - x) <= 1 && 
-                    Math.abs(ch.getComponent(Square).y - y) <= 1 &&
-                    (ch.getComponent(Square).x === x || ch.getComponent(Square).y === y));
+        const nears:Node[] = this.getNearsFiltered(x,y,color);
 
         if(nears.length >= this.minBlast)
             nears.forEach(near=>{
@@ -151,6 +151,21 @@ export class Field extends Component {
                     this.getNears(subSquare.x,subSquare.y,subSquare.color);
                 }
             });
+    }
+
+    /**
+     * Get closest squares by color
+     * @param x 
+     * @param y 
+     * @param color 
+     * @returns 
+     */
+    getNearsFiltered(x:number,y:number,color:string):Node[]{
+        return this.node.children.filter(
+            ch => ch.getComponent(Square).color === color && 
+                    Math.abs(ch.getComponent(Square).x - x) <= 1 && 
+                    Math.abs(ch.getComponent(Square).y - y) <= 1 &&
+                    (ch.getComponent(Square).x === x || ch.getComponent(Square).y === y));
     }
 
     /**
@@ -178,12 +193,34 @@ export class Field extends Component {
      * Fill empty squares with new blocks
      */
     fillEmpty(){
-        if(this.destroyed)
+        if(this.destroyed){
             this.destroyed.forEach((ss,i)=>{
                 this.addBlock(ss.x,ss.y);
                 this.destroyed.splice(i,1);
             });
+        }
         this.blocked = false;
+    }
+
+    /**
+     * Check if move available
+     */
+    checkAvailable(){
+        if(!this.node) return;
+
+        let available:boolean = false;
+        const nodes:Node[] = this.node.children;
+        const [N,M] = this.fieldSize;
+        for(let i=0; i < nodes.length; i++){
+            const block:Square = nodes[i].getComponent(Square);
+            const nears:Node[] = this.getNearsFiltered(block.x,block.y,block.color);
+            if(nears.length > 1){
+                available = true;
+                break;
+            }
+        }
+        if(!available)
+            this.getParentComponent().mixer();
     }
 
     /**
@@ -192,14 +229,10 @@ export class Field extends Component {
     endMove(){
         this.addScore(this.destroyed.length);
         this.subMove();
-    }
 
-    /**
-     * Get parent component
-     * @returns Game component
-     */
-    getParentComponent(){
-        return this.node.getComponent(Game);
+        setTimeout(()=>{
+            this.checkAvailable();
+        },1000);
     }
 
     /**
@@ -226,5 +259,13 @@ export class Field extends Component {
             block.destroy();
         });
         this.init();
+    }
+
+    /**
+     * Get parent component
+     * @returns Game component
+     */
+    getParentComponent(){
+        return this.node.getComponent(Game);
     }
 }
