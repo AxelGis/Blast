@@ -38,17 +38,33 @@ export class Booster extends Component {
         
     }
 
+    /**
+     * Set booster type button
+     * @param type 
+     */
     setType(type:string){
         this.slug = type;
         this.title.string = this.slug;
     }
 
+    /**
+     * Set booster count
+     * @param count 
+     */
     setValue(count:number){
         this.count = count;
         this.text.string = this.count.toString();
     }
     
+    /**
+     * Activate/deactivate
+     */
     toggle(){
+        if(this.count <= 0){
+            this.deactivate();
+            return;
+        }
+
         this.active = !this.active;
         this.title.fontSize = this.active ? 120 : 80;
 
@@ -56,5 +72,13 @@ export class Booster extends Component {
             .getChildByName("Game")
             .getComponent(Game)
             .setActiveBooster(this.active ? this.slug : null);
+    }
+
+    /**
+     * Deactivate
+     */
+    deactivate(){
+        this.active = false;
+        this.title.fontSize = 80;
     }
 }

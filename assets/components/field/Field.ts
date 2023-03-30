@@ -1,12 +1,8 @@
 import { _decorator, Component, Node, assetManager, SpriteFrame, error, Sprite, Vec3 } from 'cc';
+import { boosterHandler } from '../booster/BoosterHandler';
 import { Game } from '../Game';
-import { Square } from './Square';
+import { SingleSquare, Square } from "../field/Square"
 const { ccclass, property } = _decorator;
-
-type SingleSquare = {
-    x: number;
-    y: number;
-}
 
 @ccclass('Field')
 export class Field extends Component {
@@ -80,6 +76,11 @@ export class Field extends Component {
         return [color,this.sprites.get(color)];
     }
 
+    initMove(){
+        this.nears = [];
+        this.destroyed = [];
+    }
+
     /**
      * Blast calculation
      * @param square clicked square
@@ -89,9 +90,16 @@ export class Field extends Component {
             return;
         }
 
+        //boosterHandler
+        const boosterType:string|null = this.getParentComponent().activeBooster;
+        if(boosterType){
+            boosterHandler(boosterType, this, square);
+            return;
+        }
+
+        //get near blocks
         this.blocked = true;
-        this.nears = [];
-        this.destroyed = [];
+        this.initMove();
         this.getNears(square.x,square.y,square.color);
 
         if(this.nears.length === 0){
@@ -99,6 +107,13 @@ export class Field extends Component {
             return;
         }
 
+        this.blastBlocks();
+    }
+
+    /**
+     * Blast blocks
+     */
+    blastBlocks(){
         this.nears.forEach(near=>{
             near.startBlast();
             this.moveColumn(near.node);
@@ -112,8 +127,7 @@ export class Field extends Component {
             }
         });
 
-        this.subMove();
-        this.addScore(this.destroyed.length);
+        this.endMove();
     }
 
     /**
@@ -173,11 +187,27 @@ export class Field extends Component {
     }
 
     /**
+     * Set move ends
+     */
+    endMove(){
+        this.addScore(this.destroyed.length);
+        this.subMove();
+    }
+
+    /**
+     * Get parent component
+     * @returns Game component
+     */
+    getParentComponent(){
+        return this.node.getComponent(Game);
+    }
+
+    /**
      * Add scores
      * @param n scores
      */
     addScore(n:number){
-        this.node.getComponent(Game).addScore(n);
+        this.getParentComponent().addScore(n);
     }
 
     /**
@@ -185,8 +215,16 @@ export class Field extends Component {
      * @param n moves, default = 1
      */
     subMove(n:number = 1){
-        this.node.getComponent(Game).subMove();
+        this.getParentComponent().subMove();
     }
 
-    
+    /**
+     * Mix blocks
+     */
+    mixer(){
+        this.node.children.forEach(block=>{
+            block.destroy();
+        });
+        this.init();
+    }
 }
