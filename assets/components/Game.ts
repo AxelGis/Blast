@@ -161,10 +161,8 @@ export class Game extends Component {
     subBooster(type:string){
         const booster:Booster = this.getBooster(type);
         booster.setValue(--booster.count);
-        if(booster.count <= 0){
-            this.activeBooster = null;
-            booster.deactivate();
-        }
+        this.activeBooster = null;
+        booster.deactivate();
     }
 
     /**
